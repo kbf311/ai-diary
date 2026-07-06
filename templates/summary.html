@@ -1,0 +1,391 @@
+{% extends "base.html" %}
+
+{% block title %}要約作成 - AIダイアリー{% endblock %}
+
+{% block content %}
+<main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    {% if error %}
+    <!-- エラーメッセージ -->
+    <div class="mb-6">
+        <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+            <p class="text-red-800">{{ error }}</p>
+        </div>
+    </div>
+    {% elif type == 'weekly' and week_data %}
+    <!-- 週の情報 -->
+    <div class="mb-6">
+        <h2 class="text-xl font-semibold text-gray-900">{{ week_title }}の要約作成</h2>
+    </div>
+
+    <!-- 日記カード一覧（1週間分） -->
+    <div class="space-y-4 mb-8">
+        {% for day_data in week_data %}
+        <div class="bg-white border border-gray-300 rounded-lg overflow-hidden">
+            <div class="bg-gray-200 px-4 py-2">
+                <div class="text-sm font-medium text-gray-700">{{ format_date_japanese(day_data.date) }}（{{
+                    get_weekday_japanese(day_data.date) }}）</div>
+            </div>
+            <div class="p-4">
+                <div class="text-gray-900 whitespace-pre-wrap">{% if day_data.content %}{{ day_data.content }}{% else
+                    %}<span class="text-gray-400">日記がまだ入力されていません</span>{% endif %}</div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% elif type == 'monthly' and weekly_logs %}
+    <!-- 月の情報 -->
+    <div class="mb-6">
+        <h2 class="text-xl font-semibold text-gray-900">{{ month_title }}の要約作成</h2>
+    </div>
+
+    <!-- 週次ログカード一覧 -->
+    <div class="space-y-4 mb-8">
+        {% for weekly_log in weekly_logs %}
+        <div class="bg-white border border-gray-300 rounded-lg overflow-hidden">
+            <div class="bg-gray-200 px-4 py-2">
+                <div class="text-sm font-medium text-gray-700">{{ format_weekly_date_japanese(weekly_log.start_date,
+                    weekly_log.week_number) }}</div>
+            </div>
+            <div class="p-4">
+                <div class="text-gray-900 whitespace-pre-wrap">{% if weekly_log.content %}{{ weekly_log.content }}{%
+                    else %}<span class="text-gray-400">要約がまだ入力されていません</span>{% endif %}</div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% elif type == 'yearly' and monthly_logs %}
+    <!-- 年の情報 -->
+    <div class="mb-6">
+        <h2 class="text-xl font-semibold text-gray-900">{{ year_title }}の要約作成</h2>
+    </div>
+
+    <!-- 月次ログカード一覧 -->
+    <div class="space-y-4 mb-8">
+        {% for monthly_log in monthly_logs %}
+        <div class="bg-white border border-gray-300 rounded-lg overflow-hidden">
+            <div class="bg-gray-200 px-4 py-2">
+                <div class="text-sm font-medium text-gray-700">{{ monthly_log.year }}年{{ monthly_log.month }}月</div>
+            </div>
+            <div class="p-4">
+                <div class="text-gray-900 whitespace-pre-wrap">{% if monthly_log.content %}{{ monthly_log.content }}{%
+                    else %}<span class="text-gray-400">要約がまだ入力されていません</span>{% endif %}</div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <!-- データなし -->
+    <div class="mb-6">
+        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <p class="text-yellow-800">データが見つかりませんでした</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 要約作成エリア -->
+    <div class="bg-white border border-gray-300 rounded-lg p-6 mb-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">要約作成</h2>
+
+        <div class="flex space-x-3 mb-4">
+            <button id="ai-summary-button"
+                class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium cursor-pointer">
+                AIで要約
+            </button>
+            <button id="prompt-copy-button"
+                class="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition-colors font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center">
+                <svg id="prompt-copy-spinner" class="hidden animate-spin -ml-1 mr-2 h-4 w-4 text-gray-700"
+                    xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                    </path>
+                </svg>
+                <span id="prompt-copy-text">プロンプトコピー</span>
+            </button>
+        </div>
+
+        <textarea id="summary-textarea"
+            class="w-full h-64 p-4 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="AIで要約された内容がここに表示されます">{% if type == 'weekly' and weekly_log.content %}{{ weekly_log.content }}{% elif type == 'monthly' and monthly_log.content %}{{ monthly_log.content }}{% elif type == 'yearly' and yearly_log.content %}{{ yearly_log.content }}{% endif %}</textarea>
+    </div>
+
+    <!-- 登録ボタン -->
+    <div class="flex justify-end">
+        <button id="save-button"
+            class="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-semibold text-lg cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center">
+            <svg id="save-spinner" class="hidden animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                </path>
+            </svg>
+            <span id="save-button-text">登録</span>
+        </button>
+    </div>
+
+    <!-- 実装中ダイアログ -->
+    <div id="implementing-dialog"
+        class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-8 max-w-md mx-4">
+            <div class="text-center">
+                <h3 class="text-xl font-semibold text-gray-900 mb-2">実装中</h3>
+                <p class="text-gray-600 mb-6">この機能は現在実装中です。</p>
+                <button id="close-dialog-button"
+                    class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium cursor-pointer">
+                    閉じる
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 登録完了ダイアログ -->
+    <div id="success-dialog" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-8 max-w-md mx-4">
+            <div class="text-center">
+                <h3 class="text-xl font-semibold text-gray-900 mb-2">登録完了</h3>
+                <p class="text-gray-600 mb-6">要約を保存しました。</p>
+                <button id="close-success-dialog-button"
+                    class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium cursor-pointer">
+                    閉じる
+                </button>
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // ログタイプとIDをJavaScriptで利用できるようにする
+    const logType = {% if type %}'{{ type }}'{% else %}null{% endif %};
+    const weeklyLogId = {% if type == 'weekly' and weekly_log %}{{ weekly_log.id }}{% else %}null{% endif %};
+    const monthlyLogId = {% if type == 'monthly' and monthly_log %}{{ monthly_log.id }}{% else %}null{% endif %};
+    const yearlyLogId = {% if type == 'yearly' and yearly_log %}{{ yearly_log.id }}{% else %}null{% endif %};
+
+    // 週の日記データをJavaScriptで利用できるようにする
+    const weekData = {% if type == 'weekly' and week_data %}{{ week_data | tojson }}{% else %}[]{% endif %};
+    
+    // 月の日記データをJavaScriptで利用できるようにする
+    const monthData = {% if type == 'monthly' and month_data %}{{ month_data | tojson }}{% else %}[]{% endif %};
+    
+    // AIで要約ボタンのクリックイベント
+    const aiSummaryButton = document.getElementById('ai-summary-button');
+    const implementingDialog = document.getElementById('implementing-dialog');
+    const closeDialogButton = document.getElementById('close-dialog-button');
+
+    if (aiSummaryButton) {
+        aiSummaryButton.addEventListener('click', function () {
+            implementingDialog.classList.remove('hidden');
+        });
+    }
+
+    if (closeDialogButton) {
+        closeDialogButton.addEventListener('click', function () {
+            implementingDialog.classList.add('hidden');
+        });
+    }
+
+    // ダイアログの背景をクリックしても閉じる
+    if (implementingDialog) {
+        implementingDialog.addEventListener('click', function (e) {
+            if (e.target === implementingDialog) {
+                implementingDialog.classList.add('hidden');
+            }
+        });
+    }
+
+    // プロンプトコピーボタンのクリックイベント
+    const promptCopyButton = document.getElementById('prompt-copy-button');
+    const promptCopySpinner = document.getElementById('prompt-copy-spinner');
+    const promptCopyText = document.getElementById('prompt-copy-text');
+    const originalButtonText = promptCopyText ? promptCopyText.textContent : 'プロンプトコピー';
+
+    if (promptCopyButton) {
+        promptCopyButton.addEventListener('click', async function () {
+            try {
+                // ローディング状態に変更
+                promptCopyButton.disabled = true;
+                promptCopySpinner.classList.remove('hidden');
+                promptCopyText.textContent = '処理中...';
+
+                let diaryContent = '';
+
+                if (logType === 'weekly') {
+                    // 週の日記データをまとめる
+                    if (weekData && weekData.length > 0) {
+                        const weekdays = ['月', '火', '水', '木', '金', '土', '日'];
+                        weekData.forEach(function (dayData) {
+                            // 日付を日本語形式でフォーマット
+                            const date = new Date(dayData.date);
+                            const year = date.getFullYear();
+                            const month = date.getMonth() + 1;
+                            const day = date.getDate();
+                            // JavaScriptのgetDay()は日曜日が0、月曜日が1なので、月曜日を0にするために調整
+                            const dayOfWeek = date.getDay();
+                            const weekdayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+                            const weekday = weekdays[weekdayIndex];
+                            const dateStr = `${year}年${month}月${day}日（${weekday}）`;
+                            diaryContent += `${dateStr}\n`;
+                            if (dayData.content) {
+                                diaryContent += `${dayData.content}\n\n`;
+                            } else {
+                                diaryContent += '日記がまだ入力されていません\n\n';
+                            }
+                        });
+                    }
+                } else if (logType === 'monthly') {
+                    if (monthData && monthData.length > 0) {
+                        monthData.forEach(function(weekData) {
+                            // start_dateから年と月を取得
+                            const date = new Date(weekData.start_date);
+                            const year = date.getFullYear();
+                            const month = date.getMonth() + 1;
+                            const weekNumber = weekData.week_number;
+                            const dateStr = `${year}年${month}月第${weekNumber}週`;
+                            diaryContent += `${dateStr}\n`;
+                            if (weekData.content) {
+                                diaryContent += `${weekData.content}\n\n`;
+                            } else {
+                                diaryContent += '要約がまだ入力されていません\n\n';
+                            }
+                        });
+                    }
+                }
+
+                let response;
+                let data;
+
+                // プロンプトを取得
+                if (logType === 'weekly') {
+                    response = await fetch('/api/prompt/weekly');
+                    data = await response.json();
+                } else if (logType === 'monthly') {
+                    response = await fetch('/api/prompt/monthly');
+                    data = await response.json();
+                } else if (logType === 'yearly') {
+                    response = await fetch('/api/prompt/yearly');
+                    data = await response.json();
+                }
+
+                if (data.status === 'success') {
+                    // {{INPUT_DATA}}を週の日記データで置き換え（すべての出現箇所を置き換え）
+                    const promptText = data.template.replace(/\{\{INPUT_DATA\}\}/g, diaryContent.trim());
+
+                    // クリップボードにコピー
+                    await navigator.clipboard.writeText(promptText);
+
+                    // ローディング状態を解除して成功メッセージを表示
+                    promptCopySpinner.classList.add('hidden');
+                    promptCopyButton.disabled = false;
+                    promptCopyText.textContent = 'プロンプトをクリップボードに保存しました';
+
+                    // 2秒後に元に戻す
+                    setTimeout(function () {
+                        promptCopyText.textContent = originalButtonText;
+                    }, 2000);
+                } else {
+                    // エラー時はローディング状態を解除
+                    promptCopyButton.disabled = false;
+                    promptCopySpinner.classList.add('hidden');
+                    promptCopyText.textContent = originalButtonText;
+                    alert('プロンプトの取得に失敗しました');
+                }
+            } catch (error) {
+                // エラー時はローディング状態を解除
+                promptCopyButton.disabled = false;
+                promptCopySpinner.classList.add('hidden');
+                promptCopyText.textContent = originalButtonText;
+                console.error('エラー:', error);
+                alert('プロンプトのコピーに失敗しました');
+            }
+        });
+    }
+
+    // 登録ボタンのクリックイベント
+    const saveButton = document.getElementById('save-button');
+    const saveSpinner = document.getElementById('save-spinner');
+    const saveButtonText = document.getElementById('save-button-text');
+    const summaryTextarea = document.getElementById('summary-textarea');
+    const successDialog = document.getElementById('success-dialog');
+    const closeSuccessDialogButton = document.getElementById('close-success-dialog-button');
+
+    if (saveButton) {
+        saveButton.addEventListener('click', async function () {
+            let logId = null;
+            let apiUrl = null;
+
+            if (logType === 'weekly' && weeklyLogId) {
+                logId = weeklyLogId;
+                apiUrl = `/api/weekly/${weeklyLogId}`;
+            } else if (logType === 'monthly' && monthlyLogId) {
+                logId = monthlyLogId;
+                apiUrl = `/api/monthly/${monthlyLogId}`;
+            } else if (logType === 'yearly' && yearlyLogId) {
+                logId = yearlyLogId;
+                apiUrl = `/api/yearly/${yearlyLogId}`;
+            } else {
+                alert('ログのIDが取得できませんでした');
+                return;
+            }
+
+            const content = summaryTextarea.value.trim();
+
+            if (!content) {
+                alert('要約の内容を入力してください');
+                return;
+            }
+
+            // ローディング状態に変更
+            saveButton.disabled = true;
+            saveSpinner.classList.remove('hidden');
+            saveButtonText.textContent = '登録中...';
+
+            // フォームデータを作成
+            const formData = new FormData();
+            formData.append('content', content);
+
+            try {
+                // POSTリクエストを送信
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    // 登録完了ダイアログを表示
+                    successDialog.classList.remove('hidden');
+                } else {
+                    alert('エラーが発生しました: ' + (result.message || '不明なエラー'));
+                }
+            } catch (error) {
+                console.error('エラー:', error);
+                alert('エラーが発生しました: ' + error.message);
+            } finally {
+                // ローディング状態を解除
+                saveButton.disabled = false;
+                saveSpinner.classList.add('hidden');
+                saveButtonText.textContent = '登録';
+            }
+        });
+    }
+
+    // 登録完了ダイアログを閉じる
+    if (closeSuccessDialogButton) {
+        closeSuccessDialogButton.addEventListener('click', function () {
+            successDialog.classList.add('hidden');
+        });
+    }
+
+    // ダイアログの背景をクリックしても閉じる
+    if (successDialog) {
+        successDialog.addEventListener('click', function (e) {
+            if (e.target === successDialog) {
+                successDialog.classList.add('hidden');
+            }
+        });
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,385 @@
+{% extends "base.html" %}
+
+{% block title %}デイリー日記 - AIダイアリー{% endblock %}
+
+{% block content %}
+<main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- 日付ナビゲーション -->
+        <div class="bg-white border border-gray-300 rounded-lg p-6 mb-6">
+            <div class="flex items-center justify-between">
+                <button id="prev-day-button" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors cursor-pointer">
+                    <svg class="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                    </svg>
+                    前の日へ
+                </button>
+                
+                <div class="flex items-center space-x-4 relative">
+                    <span class="text-lg font-semibold text-gray-900" id="current-date"></span>
+                    <div class="relative">
+                        <!-- カレンダーアイコンの上に透明なinput要素を配置 -->
+                        <input type="date" id="date-picker" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                        <button id="calendar-toggle" class="p-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors pointer-events-none">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                
+                <button id="next-day-button" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors cursor-pointer">
+                    次の日へ
+                    <svg class="w-5 h-5 inline-block ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- エラーメッセージエリア -->
+        <div id="error-message" class="hidden bg-red-50 border border-red-200 rounded-lg p-6 mb-6">
+            <div class="flex items-center">
+                <svg class="w-6 h-6 text-red-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p class="text-red-800 font-medium" id="error-text"></p>
+            </div>
+        </div>
+
+        <!-- コンテンツエリア（データが存在する場合のみ表示） -->
+        <div id="content-area">
+            <!-- 下書きエリア -->
+            <div class="bg-white border border-gray-300 rounded-lg p-6 mb-6">
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">下書き</h2>
+                <textarea 
+                    id="draft-textarea" 
+                    class="w-full h-64 p-4 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-100"
+                    placeholder="箇条書きで入力してください&#10;例：&#10;- 今日はプロジェクトの進捗を確認した&#10;- 新しいアイデアを思いついた&#10;- 友人とランチをした"
+                ></textarea>
+                
+                <div class="flex space-x-3 mt-4">
+                    <button id="polish-button" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium cursor-pointer">
+                        AIで清書
+                    </button>
+                    <button id="prompt-copy-button" class="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition-colors font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center">
+                        <svg id="prompt-copy-spinner" class="hidden animate-spin -ml-1 mr-2 h-4 w-4 text-gray-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span id="prompt-copy-text">プロンプトコピー</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 清書エリア -->
+            <div class="bg-white border border-gray-300 rounded-lg p-6 mb-6">
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">清書</h2>
+                <textarea 
+                    id="polished-textarea" 
+                    class="w-full h-64 p-4 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="AIで清書された内容がここに表示されます"
+                ></textarea>
+            </div>
+
+            <!-- 登録ボタン -->
+            <div class="flex justify-end">
+                <button id="save-button" class="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-semibold text-lg cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center">
+                    <svg id="save-spinner" class="hidden animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span id="save-button-text">登録</span>
+                </button>
+            </div>
+        </div>
+
+    <!-- 実装中ダイアログ -->
+    <div id="implementing-dialog" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-8 max-w-md mx-4">
+            <div class="text-center">
+                <h3 class="text-xl font-semibold text-gray-900 mb-2">実装中</h3>
+                <p class="text-gray-600 mb-6">この機能は現在実装中です。</p>
+                <button id="close-dialog-button" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium cursor-pointer">
+                    閉じる
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 登録完了ダイアログ -->
+    <div id="success-dialog" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-8 max-w-md mx-4">
+            <div class="text-center">
+                <h3 class="text-xl font-semibold text-gray-900 mb-2">登録完了</h3>
+                <p class="text-gray-600 mb-6">日記を保存しました。</p>
+                <button id="close-success-dialog-button" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium cursor-pointer">
+                    閉じる
+                </button>
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // 現在の日付を管理
+    let currentDate = new Date();
+    currentDate.setHours(0, 0, 0, 0);
+
+    const datePicker = document.getElementById('date-picker');
+    const currentDateDisplay = document.getElementById('current-date');
+    const prevDayButton = document.getElementById('prev-day-button');
+    const nextDayButton = document.getElementById('next-day-button');
+    const errorMessage = document.getElementById('error-message');
+    const errorText = document.getElementById('error-text');
+    const contentArea = document.getElementById('content-area');
+    const draftTextarea = document.getElementById('draft-textarea');
+    const polishedTextarea = document.getElementById('polished-textarea');
+    const saveButton = document.getElementById('save-button');
+    const saveSpinner = document.getElementById('save-spinner');
+    const saveButtonText = document.getElementById('save-button-text');
+    const successDialog = document.getElementById('success-dialog');
+    const closeSuccessDialogButton = document.getElementById('close-success-dialog-button');
+
+    // 日付をYYYY-MM-DD形式に変換
+    function formatDate(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    // 日付を日本語形式で表示
+    function formatDateJapanese(date) {
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1;
+        const day = date.getDate();
+        const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+        const weekday = weekdays[date.getDay()];
+        return `${year}年${month}月${day}日（${weekday}）`;
+    }
+
+    // 日付を更新してデータを読み込む
+    async function loadJournalData(date) {
+        const dateStr = formatDate(date);
+        
+        // 日付表示を更新
+        currentDateDisplay.textContent = formatDateJapanese(date);
+        datePicker.value = dateStr;
+
+        try {
+            const response = await fetch(`/api/journal/${dateStr}`);
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                // データが存在する場合
+                errorMessage.classList.add('hidden');
+                contentArea.classList.remove('hidden');
+                polishedTextarea.value = data.content || '';
+                draftTextarea.value = ''; // 下書きは常に空
+            } else {
+                // データが存在しない場合
+                if (data.is_future) {
+                    // 未来の日付の場合
+                    errorText.textContent = '未来の日付は登録できません';
+                    errorMessage.classList.remove('hidden');
+                    contentArea.classList.add('hidden');
+                } else {
+                    // その他のエラー
+                    errorText.textContent = data.message || 'データの取得に失敗しました';
+                    errorMessage.classList.remove('hidden');
+                    contentArea.classList.add('hidden');
+                }
+            }
+        } catch (error) {
+            console.error('エラー:', error);
+            errorText.textContent = 'データの取得に失敗しました';
+            errorMessage.classList.remove('hidden');
+            contentArea.classList.add('hidden');
+        }
+    }
+
+    // 前の日へ
+    prevDayButton.addEventListener('click', function() {
+        const prevDate = new Date(currentDate);
+        prevDate.setDate(prevDate.getDate() - 1);
+        currentDate = prevDate;
+        loadJournalData(currentDate);
+    });
+
+    // 次の日へ
+    nextDayButton.addEventListener('click', function() {
+        const nextDate = new Date(currentDate);
+        nextDate.setDate(nextDate.getDate() + 1);
+        currentDate = nextDate;
+        loadJournalData(currentDate);
+    });
+
+    // カレンダーアイコン（実際はinput要素）クリックで日付選択を開く
+    datePicker.addEventListener('click', function() {
+        if (datePicker.showPicker) {
+            datePicker.showPicker();
+        }
+    });
+
+    // 日付選択時の処理
+    datePicker.addEventListener('change', function(e) {
+        const selectedDate = new Date(e.target.value + 'T00:00:00');
+        currentDate = selectedDate;
+        loadJournalData(currentDate);
+    });
+
+    // 初期表示：URLパラメータから日付を取得、なければ今日のデータを読み込む
+    const urlParams = new URLSearchParams(window.location.search);
+    const dateParam = urlParams.get('date');
+    
+    if (dateParam) {
+        // URLパラメータから日付を取得
+        const paramDate = new Date(dateParam + 'T00:00:00');
+        currentDate = paramDate;
+        loadJournalData(currentDate);
+    } else {
+        // パラメータがない場合は今日のデータを読み込む
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        currentDate = today;
+        loadJournalData(currentDate);
+    }
+
+    // 登録ボタンのクリックイベント
+    saveButton.addEventListener('click', async function() {
+        const dateStr = formatDate(currentDate);
+        const content = polishedTextarea.value.trim();
+
+        if (!content) {
+            alert('清書の内容を入力してください');
+            return;
+        }
+
+        // ローディング状態に変更
+        saveButton.disabled = true;
+        saveSpinner.classList.remove('hidden');
+        saveButtonText.textContent = '登録中...';
+
+        // フォームデータを作成
+        const formData = new FormData();
+        formData.append('content', content);
+
+        try {
+            // POSTリクエストを送信
+            const response = await fetch(`/api/journal/${dateStr}`, {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+
+            if (result.status === 'success') {
+                // 登録完了ダイアログを表示
+                successDialog.classList.remove('hidden');
+            } else {
+                alert('エラーが発生しました: ' + (result.message || '不明なエラー'));
+            }
+        } catch (error) {
+            console.error('エラー:', error);
+            alert('エラーが発生しました: ' + error.message);
+        } finally {
+            // ローディング状態を解除
+            saveButton.disabled = false;
+            saveSpinner.classList.add('hidden');
+            saveButtonText.textContent = '登録';
+        }
+    });
+
+    // 登録完了ダイアログを閉じる
+    closeSuccessDialogButton.addEventListener('click', function() {
+        successDialog.classList.add('hidden');
+    });
+
+    // ダイアログの背景をクリックしても閉じる
+    successDialog.addEventListener('click', function(e) {
+        if (e.target === successDialog) {
+            successDialog.classList.add('hidden');
+        }
+    });
+
+    // AIで清書ボタンのクリックイベント
+    const polishButton = document.getElementById('polish-button');
+    const implementingDialog = document.getElementById('implementing-dialog');
+    const closeDialogButton = document.getElementById('close-dialog-button');
+
+    polishButton.addEventListener('click', function() {
+        implementingDialog.classList.remove('hidden');
+    });
+
+    closeDialogButton.addEventListener('click', function() {
+        implementingDialog.classList.add('hidden');
+    });
+
+    // ダイアログの背景をクリックしても閉じる
+    implementingDialog.addEventListener('click', function(e) {
+        if (e.target === implementingDialog) {
+            implementingDialog.classList.add('hidden');
+        }
+    });
+
+    // プロンプトコピーボタンのクリックイベント
+    const promptCopyButton = document.getElementById('prompt-copy-button');
+    const promptCopySpinner = document.getElementById('prompt-copy-spinner');
+    const promptCopyText = document.getElementById('prompt-copy-text');
+    const originalButtonText = promptCopyText.textContent;
+
+    promptCopyButton.addEventListener('click', async function() {
+        try {
+            // ローディング状態に変更
+            promptCopyButton.disabled = true;
+            promptCopySpinner.classList.remove('hidden');
+            promptCopyText.textContent = '処理中...';
+
+            // 下書きの内容を取得
+            const draftContent = draftTextarea.value;
+
+            // プロンプトを取得
+            const response = await fetch('/api/prompt/daily');
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                // {{INPUT_DATA}}を下書きの内容で置き換え（すべての出現箇所を置き換え）
+                let promptText = data.template.replace(/\{\{INPUT_DATA\}\}/g, draftContent);
+                
+                // {{TODAY}}を今日の日付で置き換え（すべての出現箇所を置き換え）
+                const todayDate = currentDateDisplay.textContent;
+                promptText = promptText.replace(/\{\{TODAY\}\}/g, todayDate);
+
+                // クリップボードにコピー
+                await navigator.clipboard.writeText(promptText);
+
+                // ローディング状態を解除して成功メッセージを表示
+                promptCopySpinner.classList.add('hidden');
+                promptCopyButton.disabled = false;
+                promptCopyText.textContent = 'プロンプトをクリップボードに保存しました';
+
+                // 2秒後に元に戻す
+                setTimeout(function() {
+                    promptCopyText.textContent = originalButtonText;
+                }, 2000);
+            } else {
+                // エラー時はローディング状態を解除
+                promptCopyButton.disabled = false;
+                promptCopySpinner.classList.add('hidden');
+                promptCopyText.textContent = originalButtonText;
+                alert('プロンプトの取得に失敗しました');
+            }
+        } catch (error) {
+            // エラー時はローディング状態を解除
+            promptCopyButton.disabled = false;
+            promptCopySpinner.classList.add('hidden');
+            promptCopyText.textContent = originalButtonText;
+            console.error('エラー:', error);
+            alert('プロンプトのコピーに失敗しました');
+        }
+    });
+</script>
+{% endblock %}
+

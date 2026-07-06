@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AIダイアリー{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-white">
+    <!-- ヘッダー -->
+    <header class="bg-blue-600 border-b border-blue-700 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <h1 class="text-xl font-semibold text-white">AIダイアリー</h1>
+                </div>
+                
+                <!-- デスクトップナビゲーション -->
+                <nav class="hidden md:flex space-x-4">
+                    <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}text-white font-medium border-b-2 border-white{% else %}text-blue-100 hover:text-white{% endif %} px-1">ダッシュボード</a>
+                    <a href="{{ url_for('journal') }}" class="{% if request.endpoint == 'journal' %}text-white font-medium border-b-2 border-white{% else %}text-blue-100 hover:text-white{% endif %} px-1">デイリー日記</a>
+                    <a href="{{ url_for('milestones') }}" class="{% if request.endpoint == 'milestones' %}text-white font-medium border-b-2 border-white{% else %}text-blue-100 hover:text-white{% endif %} px-1">日記検索</a>
+                    <a href="{{ url_for('config') }}" class="{% if request.endpoint == 'config' %}text-white font-medium border-b-2 border-white{% else %}text-blue-100 hover:text-white{% endif %} px-1">設定</a>
+                    <a href="{{ url_for('export') }}" class="{% if request.endpoint == 'export' %}text-white font-medium border-b-2 border-white{% else %}text-blue-100 hover:text-white{% endif %} px-1">エクスポート</a>
+                </nav>
+
+                <!-- ハンバーガーボタン（モバイル） -->
+                <button id="mobile-menu-button" class="md:hidden text-white hover:text-blue-100 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-600 rounded p-2" aria-label="メニュー">
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path id="menu-icon" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                        <path id="close-icon" class="hidden" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- モバイルメニュー -->
+        <div id="mobile-menu" class="hidden md:hidden bg-blue-700 border-t border-blue-800">
+            <nav class="px-4 py-2 space-y-1">
+                <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}bg-blue-800 text-white{% else %}text-blue-100 hover:bg-blue-600 hover:text-white{% endif %} block px-3 py-2 rounded-md text-base font-medium">ダッシュボード</a>
+                <a href="{{ url_for('journal') }}" class="{% if request.endpoint == 'journal' %}bg-blue-800 text-white{% else %}text-blue-100 hover:bg-blue-600 hover:text-white{% endif %} block px-3 py-2 rounded-md text-base font-medium">デイリー日記</a>
+                <a href="{{ url_for('milestones') }}" class="{% if request.endpoint == 'milestones' %}bg-blue-800 text-white{% else %}text-blue-100 hover:bg-blue-600 hover:text-white{% endif %} block px-3 py-2 rounded-md text-base font-medium">日記検索</a>
+                <a href="{{ url_for('config') }}" class="{% if request.endpoint == 'config' %}bg-blue-800 text-white{% else %}text-blue-100 hover:bg-blue-600 hover:text-white{% endif %} block px-3 py-2 rounded-md text-base font-medium">設定</a>
+                <a href="{{ url_for('export') }}" class="{% if request.endpoint == 'export' %}bg-blue-800 text-white{% else %}text-blue-100 hover:bg-blue-600 hover:text-white{% endif %} block px-3 py-2 rounded-md text-base font-medium">エクスポート</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- メインコンテンツ -->
+    {% block content %}{% endblock %}
+
+    <!-- ハンバーガーメニュー制御スクリプト -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const menuButton = document.getElementById('mobile-menu-button');
+            const mobileMenu = document.getElementById('mobile-menu');
+            const menuIcon = document.getElementById('menu-icon');
+            const closeIcon = document.getElementById('close-icon');
+
+            if (menuButton && mobileMenu) {
+                menuButton.addEventListener('click', function() {
+                    const isHidden = mobileMenu.classList.contains('hidden');
+                    
+                    if (isHidden) {
+                        mobileMenu.classList.remove('hidden');
+                        menuIcon.classList.add('hidden');
+                        closeIcon.classList.remove('hidden');
+                    } else {
+                        mobileMenu.classList.add('hidden');
+                        menuIcon.classList.remove('hidden');
+                        closeIcon.classList.add('hidden');
+                    }
+                });
+
+                // メニュー項目をクリックしたらメニューを閉じる
+                const menuLinks = mobileMenu.querySelectorAll('a');
+                menuLinks.forEach(function(link) {
+                    link.addEventListener('click', function() {
+                        mobileMenu.classList.add('hidden');
+                        menuIcon.classList.remove('hidden');
+                        closeIcon.classList.add('hidden');
+                    });
+                });
+            }
+        });
+    </script>
+
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>
+

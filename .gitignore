@@ -1,0 +1,13 @@
+*.code-workspace
+*.exe
+*.log
+.DS_Store
+.env
+/export.html
+/force-pull.bat
+/reset-history.bat
+/wip.bat
+__pycache__/
+db/
+logs/
+venv/
