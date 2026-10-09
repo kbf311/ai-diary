@@ -14,6 +14,7 @@ from utils.log_utils import setup_logger
 from utils.db_seeder import init_database, seed_initial_data, truncate_all_tables, get_start_date
 from utils.datetime_utils import now_jst, get_monday_of_week, get_week_number_in_month
 from utils.constants import MAX_DAILY_ALERTS
+from utils.export_utils import export_diary_to_html
 
 # ロガーの設定
 app_logger = setup_logger(logger_name="app", log_file_name="app.log")
@@ -670,177 +671,12 @@ def export():
 def api_export():
     """日記データをエクスポートして静的HTMLファイルを生成"""
     try:
-        # is_completed=Trueのデイリーログをdate昇順で取得
-        daily_logs = DailyLog.query.filter(
-            DailyLog.is_completed == True
-        ).order_by(DailyLog.date.asc()).all()
-        
-        # HTMLコンテンツを生成
-        html_content = f"""<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AIダイアリー</title>
-    <link rel="stylesheet" href="static/css/tailwind.css">
-</head>
-<body class="bg-white">
-    <!-- ヘッダー -->
-    <header class="bg-blue-600 border-b border-blue-700 sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center h-16">
-                <div class="flex items-center">
-                    <h1 class="text-xl font-semibold text-white">AIダイアリー</h1>
-                </div>
-            </div>
-        </div>
-    </header>
-
-    <!-- メインコンテンツ -->
-    <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div class="space-y-4">
-            <div class="space-y-4">
-"""
-        
-        # 日記開始前の年次ログを挿入
-        if daily_logs:
-            first_diary_date = daily_logs[0].date
-            first_diary_year = first_diary_date.year
-            
-            # 日記開始年より前の年次ログを取得（年が古い順）
-            pre_diary_yearly_logs = YearlyLog.query.filter(
-                YearlyLog.year < first_diary_year
-            ).order_by(YearlyLog.year.asc()).all()
-            
-            # 日記開始前の年次ログを出力
-            for yearly_log in pre_diary_yearly_logs:
-                if yearly_log.content:
-                    yearly_content = yearly_log.content
-                    # 改行コードを統一（\r\n → \n）
-                    yearly_content = yearly_content.replace('\r\n', '\n').replace('\r', '\n')
-                    # HTMLエスケープ
-                    yearly_content = yearly_content.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;').replace("'", '&#39;')
-                    html_content += f"""                <div class="bg-white border border-gray-300 rounded-lg overflow-hidden">
-                    <div class="bg-purple-300 px-4 py-2">
-                        <div class="text-sm font-medium text-purple-900">【年次】{yearly_log.year}年</div>
-                    </div>
-                    <div class="p-6">
-                        <div class="text-gray-900 whitespace-pre-wrap">{yearly_content}</div>
-                    </div>
-                </div>
-"""
-        
-        # 各ログをカードとして追加
-        if daily_logs:
-            for log in daily_logs:
-                current_date = log.date
-                
-                # 年次ログの挿入（1月1日の場合）
-                if current_date.month == 1 and current_date.day == 1:
-                    yearly_log = YearlyLog.query.filter_by(first_day=current_date).first()
-                    if yearly_log and yearly_log.content:
-                        yearly_content = yearly_log.content
-                        # 改行コードを統一（\r\n → \n）
-                        yearly_content = yearly_content.replace('\r\n', '\n').replace('\r', '\n')
-                        # HTMLエスケープ
-                        yearly_content = yearly_content.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;').replace("'", '&#39;')
-                        html_content += f"""                <div class="bg-white border border-gray-300 rounded-lg overflow-hidden">
-                    <div class="bg-purple-300 px-4 py-2">
-                        <div class="text-sm font-medium text-purple-900">【年次】{yearly_log.year}年</div>
-                    </div>
-                    <div class="p-6">
-                        <div class="text-gray-900 whitespace-pre-wrap">{yearly_content}</div>
-                    </div>
-                </div>
-"""
-                
-                # 週次ログの挿入（月曜日の場合）
-                if current_date.weekday() == 0:  # 0 = 月曜日
-                    weekly_log = WeeklyLog.query.filter_by(start_date=current_date - timedelta(days=7)).first()
-                    if weekly_log and weekly_log.content:
-                        weekly_content = weekly_log.content
-                        # 改行コードを統一（\r\n → \n）
-                        weekly_content = weekly_content.replace('\r\n', '\n').replace('\r', '\n')
-                        # HTMLエスケープ
-                        weekly_content = weekly_content.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;').replace("'", '&#39;')
-                        week_title = format_weekly_date_japanese(weekly_log.start_date, weekly_log.week_number)
-                        html_content += f"""                <div class="bg-white border border-gray-300 rounded-lg overflow-hidden">
-                    <div class="bg-blue-300 px-4 py-2">
-                        <div class="text-sm font-medium text-blue-900">【週次】{week_title}</div>
-                    </div>
-                    <div class="p-6">
-                        <div class="text-gray-900 whitespace-pre-wrap">{weekly_content}</div>
-                    </div>
-                </div>
-"""
-                        # 月次ログの挿入（その月の最終週次ログの場合）
-                        # 自分より後ろの週次ログが同じ月に存在しないかチェック
-                        is_last_weekly_of_month = not WeeklyLog.query.filter(
-                            WeeklyLog.year == weekly_log.year,
-                            WeeklyLog.month == weekly_log.month,
-                            WeeklyLog.start_date > weekly_log.start_date
-                        ).first()
-                        if is_last_weekly_of_month:
-                            month_first_day = date(weekly_log.year, weekly_log.month, 1)
-                            monthly_log = MonthlyLog.query.filter_by(first_day=month_first_day).first()
-                            if monthly_log and monthly_log.content:
-                                monthly_content = monthly_log.content
-                                # 改行コードを統一（\r\n → \n）
-                                monthly_content = monthly_content.replace('\r\n', '\n').replace('\r', '\n')
-                                # HTMLエスケープ
-                                monthly_content = monthly_content.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;').replace("'", '&#39;')
-                                html_content += f"""                <div class="bg-white border border-gray-300 rounded-lg overflow-hidden">
-                    <div class="bg-green-300 px-4 py-2">
-                        <div class="text-sm font-medium text-green-900">【月次】{monthly_log.year}年{monthly_log.month}月</div>
-                    </div>
-                    <div class="p-6">
-                        <div class="text-gray-900 whitespace-pre-wrap">{monthly_content}</div>
-                    </div>
-                </div>
-"""
-                
-                # デイリーログの挿入
-                date_jp = format_date_japanese(current_date)
-                weekday = get_weekday_japanese(current_date)
-                content = log.content if log.content else '（内容なし）'
-                # 改行コードを統一（\r\n → \n）
-                content = content.replace('\r\n', '\n').replace('\r', '\n')
-                # HTMLエスケープ
-                content = content.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;').replace("'", '&#39;')
-                
-                html_content += f"""                <div class="bg-white border border-gray-300 rounded-lg overflow-hidden">
-                    <div class="bg-gray-200 px-4 py-2">
-                        <div class="text-sm font-medium text-gray-700">{date_jp}（{weekday}）</div>
-                    </div>
-                    <div class="p-6">
-                        <div class="text-gray-900 whitespace-pre-wrap">{content}</div>
-                    </div>
-                </div>
-"""
-        else:
-            html_content += """                <div class="text-center py-8 text-gray-500">
-                    エクスポートするデータがありません
-                </div>
-"""
-        
-        html_content += """            </div>
-        </div>
-    </main>
-</body>
-</html>"""
-        
-        # app.pyと同じディレクトリにexport.htmlを保存
-        export_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'export.html')
-        with open(export_path, 'w', encoding='utf-8') as f:
-            f.write(html_content)
-        
-        app_logger.info(f"日記データをエクスポートしました: {export_path}")
-        
+        result = export_diary_to_html()
         return jsonify({
             'status': 'success',
-            'message': f'日記データをexport.htmlにエクスポートしました（{len(daily_logs)}件）',
-            'count': len(daily_logs),
-            'path': export_path
+            'message': f"日記データをexport.htmlにエクスポートしました（{result['count']}件）",
+            'count': result['count'],
+            'path': result['path']
         }), 200
         
     except Exception as e:

@@ -60,3 +60,19 @@ def get_week_number_in_month(target_date: date) -> int:
     week_number = (days_diff // 7) + 1
     
     return week_number
+
+
+def format_date_japanese(target_date: date) -> str:
+    """日付を日本語形式でフォーマット（例: 2024年1月15日）"""
+    return f"{target_date.year}年{target_date.month}月{target_date.day}日"
+
+
+def format_weekly_date_japanese(start_date: date, week_number: int) -> str:
+    """週の日付を日本語形式でフォーマット（例: 2024年1月第1週）"""
+    return f"{start_date.year}年{start_date.month}月第{week_number}週"
+
+
+def get_weekday_japanese(target_date: date) -> str:
+    """日付から日本語の曜日を取得"""
+    weekdays = ['月', '火', '水', '木', '金', '土', '日']
+    return weekdays[target_date.weekday()]
