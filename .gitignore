@@ -1,10 +1,12 @@
 *.code-workspace
+*.db
 *.exe
 *.log
 *.url
 .DS_Store
 .env
 /export.html
+/export.json
 /force-pull.bat
 /reset-history.bat
 /wip.bat
